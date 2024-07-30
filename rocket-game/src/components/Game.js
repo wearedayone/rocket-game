@@ -53,14 +53,28 @@ const Game = () => {
     dispatch(loadTokenBalance(balance))
   }, [data, dispatch])
 
+  const isFarEnough = (newPos, targets, minDistance) => {
+    return targets.every(target => {
+      const distance = Math.sqrt(
+        (newPos.x - target.x) ** 2 + (newPos.y - target.y) ** 2
+      )
+
+      return distance >= minDistance
+    })
+  }
+
   const generateTargets = () => {
-    const numOfTargets = 50
+    const numOfTargets = 20
     const _targets = []
     for (let i = 0; i < numOfTargets; i++) {
-      const randomX = Math.random() * (window.innerWidth / 2)
-      const randomY = Math.random() * window.innerHeight
+      const newTarget = {
+        x: Math.random() * (window.innerWidth / 2),
+        y: Math.random() * window.innerHeight
+      }
 
-      _targets.push({ id: i + 1, x: randomX, y: randomY, visible: true })
+      if (isFarEnough(newTarget, _targets, 100)) {
+        _targets.push({ id: i + 1, ...newTarget, visible: true })
+      }
     }
 
     setTargets(_targets)
