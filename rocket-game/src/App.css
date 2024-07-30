@@ -1,5 +1,6 @@
 /* src/App.css */
-body, html {
+body,
+html {
   margin: 0;
   padding: 0;
   width: 100%;
@@ -37,7 +38,7 @@ body, html {
 }
 
 .rocket-launcher::before {
-  content: "";
+  content: '';
   display: block;
   width: 0;
   height: 0;
@@ -110,4 +111,11 @@ button {
   height: 100%;
   background: green;
   transition: width 0.1s;
+}
+
+.connect-btn {
+  position: absolute;
+  right: 20px;
+  top: 20px;
+  z-index: 99;
 }
