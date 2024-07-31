@@ -1,11 +1,27 @@
 // src/components/Game.js
-import React, { useEffect, useRef, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { startFiring, stopFiring, updateRocketPosition, resetHoldDuration } from '../store';
+import React, { useEffect, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  startFiring,
+  stopFiring,
+  updateRocketPosition,
+  resetHoldDuration,
+  endRound,
+} from "../store";
+
+const Target = ({ x, y }) => {
+  return <div className="target" style={{ left: x, bottom: y }} />;
+};
 
 const Game = () => {
   const dispatch = useDispatch();
-  const { isFiring, rocketPosition, holdDuration, tokens } = useSelector((state) => state.game);
+  const {
+    targets,
+    isFiring,
+    rocketPosition,
+    holdDuration,
+    tokens,
+  } = useSelector((state) => state.game);
   const [currentHoldDuration, setCurrentHoldDuration] = useState(0);
   const intervalRef = useRef(null);
   const rocketIntervalRef = useRef(null);
@@ -46,9 +62,9 @@ const Game = () => {
           if (y < 0) {
             clearInterval(rocketIntervalRef.current);
             dispatch(updateRocketPosition({ x: 0, y: 0 })); // Reset position after it falls
+            dispatch(endRound());
           } else {
-            
-            dispatch(updateRocketPosition({ x, y: -y }));
+            dispatch(updateRocketPosition({ x, y }));
           }
         }, 100);
       };
@@ -56,8 +72,6 @@ const Game = () => {
       launchRocket();
       dispatch(resetHoldDuration());
     }
-
-    return () => clearInterval(rocketIntervalRef.current);
   }, [isFiring, holdDuration, dispatch]);
 
   const handleMouseDown = () => {
@@ -72,23 +86,38 @@ const Game = () => {
     dispatch(stopFiring());
   };
 
+  const renderTarget = () => {
+    return targets.map((target) => <Target x={target.x} y={target.y} />);
+  };
+
   return (
     <div className="game">
       <div className="tokens">Tokens: {tokens}</div>
       <div className="rocket-launcher">
-        <div className="rocket" style={{ transform: `translate(${rocketPosition.x}px, ${rocketPosition.y}px)` }}>
+        <div
+          className="rocket"
+          style={{
+            transform: `translate(${rocketPosition.x}px, ${-rocketPosition.y}px)`,
+          }}
+        >
           🚀
         </div>
       </div>
-      <div className="target target1"></div>
-      <div className="target target2"></div>
+      {renderTarget()}
       <div className="land"></div>
       <div className="controls">
-        <button onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} disabled={tokens <= 0}>
+        <button
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          disabled={tokens <= 0}
+        >
           Fire Rocket
         </button>
         <div className="hold-bar">
-          <div className="hold-duration" style={{ width: `${currentHoldDuration * 10}%` }}></div>
+          <div
+            className="hold-duration"
+            style={{ width: `${currentHoldDuration * 10}%` }}
+          ></div>
         </div>
       </div>
     </div>
