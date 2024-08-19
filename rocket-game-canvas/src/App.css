@@ -1,5 +1,6 @@
 /* src/App.css */
-body, html {
+body,
+html {
   margin: 0;
   padding: 0;
   width: 100%;
@@ -22,10 +23,12 @@ body, html {
   font-size: 18px;
 }
 
-.canvas-game {
+.points {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 20px;
+  right: 20px;
+  font-size: 18px;
+  text-align: right;
 }
 
 .rocket-launcher {
@@ -97,6 +100,10 @@ body, html {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.button-text {
+  user-select: none;
 }
 
 button {

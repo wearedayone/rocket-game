@@ -1,5 +1,6 @@
 // src/store.js
 import { configureStore, createSlice } from "@reduxjs/toolkit";
+import { generateRandomTargetPositions } from "./components/utils";
 
 const initialState = {
   isFiring: false,
@@ -7,6 +8,8 @@ const initialState = {
   launchTime: null,
   holdDuration: 0,
   tokens: 10, // Initial number of tokens
+  points: 0, // Initial points
+  targetPositions: generateRandomTargetPositions(), // Initial target positions
 };
 
 const gameSlice = createSlice({
@@ -30,7 +33,10 @@ const gameSlice = createSlice({
       state.holdDuration = 0;
     },
     addPoints: (state, action) => {
-      state.tokens += action.payload.point;
+      state.points += action.payload;
+    },
+    resetTargetPositions: (state) => {
+      state.targetPositions = generateRandomTargetPositions();
     },
   },
 });
@@ -40,6 +46,7 @@ export const {
   stopFiring,
   updateRocketPosition,
   resetHoldDuration,
+  resetTargetPositions,
   addPoints,
 } = gameSlice.actions;
 

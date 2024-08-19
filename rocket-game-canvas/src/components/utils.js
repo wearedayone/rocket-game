@@ -10,13 +10,20 @@ export const doRectanglesIntersect = (rect1, rect2) => {
 
 //func to generate random target positions
 export const generateRandomTargetPositions = () => {
+  // Generate two random target positions
+  // at a square of 100 x 100 pixels in center of the screen
+  let cornerTopX = window.innerWidth * 0.4;
+  let cornerTopY = window.innerHeight * 0.4;
   const target1 = {
-    x: Math.random() * 1000,
-    y: Math.random() * 1000,
+    x: cornerTopX + window.innerWidth * 0.1 * Math.random(),
+    y: cornerTopY + window.innerWidth * 0.1 * Math.random(),
   };
+
+  cornerTopX = window.innerWidth * 0.7;
+  cornerTopY = window.innerHeight * 0.6;
   const target2 = {
-    x: Math.random() * 1000,
-    y: Math.random() * 1000,
+    x: cornerTopX + window.innerWidth * 0.1 * Math.random(),
+    y: cornerTopY + window.innerWidth * 0.1 * Math.random(),
   };
   return [target1, target2];
 };
