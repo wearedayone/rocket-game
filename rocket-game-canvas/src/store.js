@@ -1,16 +1,16 @@
 // src/store.js
-import { configureStore, createSlice } from '@reduxjs/toolkit';
+import { configureStore, createSlice } from "@reduxjs/toolkit";
 
 const initialState = {
   isFiring: false,
-  rocketPosition: { x: 0, y: 0, rAngle:0 },
+  rocketPosition: { x: 0, y: 0, rAngle: 0 },
   launchTime: null,
   holdDuration: 0,
   tokens: 10, // Initial number of tokens
 };
 
 const gameSlice = createSlice({
-  name: 'game',
+  name: "game",
   initialState,
   reducers: {
     startFiring: (state) => {
@@ -29,10 +29,19 @@ const gameSlice = createSlice({
     resetHoldDuration: (state) => {
       state.holdDuration = 0;
     },
+    addPoints: (state, action) => {
+      state.tokens += action.payload.point;
+    },
   },
 });
 
-export const { startFiring, stopFiring, updateRocketPosition, resetHoldDuration } = gameSlice.actions;
+export const {
+  startFiring,
+  stopFiring,
+  updateRocketPosition,
+  resetHoldDuration,
+  addPoints,
+} = gameSlice.actions;
 
 export const store = configureStore({
   reducer: {
