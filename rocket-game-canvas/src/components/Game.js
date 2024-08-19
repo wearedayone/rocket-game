@@ -1,26 +1,159 @@
 // src/components/Game.js
-import React, { useEffect, useRef, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { startFiring, stopFiring, updateRocketPosition, resetHoldDuration } from '../store';
+import React, { useEffect, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  startFiring,
+  stopFiring,
+  updateRocketPosition,
+  resetHoldDuration,
+  resetTargetPositions,
+  addPoints,
+} from "../store";
+import { doRectanglesIntersect } from "./utils";
+import anime from "animejs";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const Game = () => {
   const canvasRef = useRef(null);
   const dispatch = useDispatch();
-  const { isFiring, rocketPosition, holdDuration, tokens } = useSelector((state) => state.game);
+  const {
+    isFiring,
+    rocketPosition,
+    holdDuration,
+    tokens,
+    points,
+    targetPositions,
+  } = useSelector((state) => state.game);
   const [currentHoldDuration, setCurrentHoldDuration] = useState(0);
   const intervalRef = useRef(null);
   const rocketIntervalRef = useRef(null);
   const holdStartTimeRef = useRef(null);
   const launchTimeRef = useRef(null);
   const rocketImageRef = useRef(null); // Reference for the rocket image
-
+  const hitTarget1Ref = useRef(false);
+  const hitTarget2Ref = useRef(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
+
+    var numberOfParticules = 30;
+    var pointerX = 0;
+    var pointerY = 0;
+
+    var colors = ["#FF1461", "#18FF92", "#5A87FF", "#FBF38C"];
+
+    function updateCoords(e) {
+      pointerX = e.clientX || e.touches[0].clientX;
+      pointerY = e.clientY || e.touches[0].clientY;
+    }
+
+    function setParticuleDirection(p) {
+      var angle = (anime.random(0, 360) * Math.PI) / 180;
+      var value = anime.random(50, 180);
+      var radius = [-1, 1][anime.random(0, 1)] * value;
+      return {
+        x: p.x + radius * Math.cos(angle),
+        y: p.y + radius * Math.sin(angle),
+      };
+    }
+
+    function createCircle(x, y) {
+      var p = {};
+      p.x = x;
+      p.y = y;
+      p.color = "#FFF";
+      p.radius = 0.1;
+      p.alpha = 0.5;
+      p.lineWidth = 6;
+      p.draw = function () {
+        ctx.globalAlpha = p.alpha;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, 2 * Math.PI, true);
+        ctx.lineWidth = p.lineWidth;
+        ctx.strokeStyle = p.color;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      };
+      return p;
+    }
+
+    function createParticule(x, y) {
+      var p = {};
+      p.x = x;
+      p.y = y;
+      p.color = colors[anime.random(0, colors.length - 1)];
+      p.radius = anime.random(16, 32);
+      p.endPos = setParticuleDirection(p);
+      p.draw = function () {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, 2 * Math.PI, true);
+        ctx.fillStyle = p.color;
+        ctx.fill();
+      };
+      return p;
+    }
+
+    function renderParticule(anim) {
+      for (var i = 0; i < anim.animatables.length; i++) {
+        anim.animatables[i].target.draw();
+      }
+    }
+
+    function animateParticules(x, y) {
+      var circle = createCircle(x, y);
+      var particules = [];
+      for (var i = 0; i < numberOfParticules; i++) {
+        particules.push(createParticule(x, y));
+      }
+      anime
+        .timeline()
+        .add({
+          targets: particules,
+          x: function (p) {
+            return p.endPos.x;
+          },
+          y: function (p) {
+            return p.endPos.y;
+          },
+          radius: 0.1,
+          duration: anime.random(800, 1200),
+          easing: "easeOutExpo",
+          update: renderParticule,
+        })
+        .add({
+          targets: circle,
+          radius: anime.random(40, 80),
+          lineWidth: 0,
+          alpha: {
+            value: 0,
+            easing: "linear",
+            duration: anime.random(600, 800),
+          },
+          duration: anime.random(800, 1000),
+          easing: "easeOutExpo",
+          update: renderParticule,
+          offset: 0,
+        });
+    }
+
+    var render = anime({
+      duration: Infinity,
+      update: function () {
+        // ctx.clearRect(0, 0, canvas.width, canvas.height);
+      },
+    });
+
+    const playExplosionAnim = (x, y) => {
+      window.human = true;
+      render.play();
+      updateCoords({ clientX: x, clientY: y });
+      animateParticules(pointerX, pointerY);
+    };
 
     const rocketImage = new Image();
-    rocketImage.src = '/images/rocket_1.png'; // Update the path to your image
+    rocketImage.src = "/images/rocket_1.png"; // Update the path to your image
     rocketImage.onload = () => {
       rocketImageRef.current = rocketImage;
       draw(); // Initial draw after loading the image
@@ -30,8 +163,26 @@ const Game = () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
+    const x1 = targetPositions[0].x;
+    const y1 = targetPositions[0].y;
+    const targetBoundingBox1 = {
+      x: x1, // center x - radius
+      y: y1, // center y - radius
+      width: 50, // diameter
+      height: 50, // diameter
+    };
+    const x2 = targetPositions[1].x;
+    const y2 = targetPositions[1].y;
+
+    const targetBoundingBox2 = {
+      x: x2, // center x - radius
+      y: y2, // center y - radius
+      width: 50, // diameter
+      height: 50, // diameter
+    };
+
     const drawLauncher = () => {
-      ctx.fillStyle = 'gray';
+      ctx.fillStyle = "gray";
       ctx.fillRect(50, canvas.height - 150, 60, 120);
       ctx.beginPath();
       ctx.moveTo(50, canvas.height - 150);
@@ -42,40 +193,83 @@ const Game = () => {
     };
 
     const drawRocket = () => {
-      
       if (rocketImageRef.current) {
-        const angle = Math.sqrt(2) - rocketPosition.rAngle; 
-        console.log(angle, rocketPosition.rAngle )
-        ctx.translate( rocketPosition.x + 55, canvas.height - rocketPosition.y - 100 );
+        const angle = Math.sqrt(2) - rocketPosition.rAngle;
+        ctx.translate(
+          rocketPosition.x + 55,
+          canvas.height - rocketPosition.y - 100
+        );
         ctx.rotate(angle);
         ctx.drawImage(
           rocketImageRef.current,
-          0,// rocketPosition.x + 55,
+          0, // rocketPosition.x + 55,
           // canvas.height - rocketPosition.y - 100,
           0,
           50, // width of the rocket image
-          50  // height of the rocket image
+          50 // height of the rocket image
         );
-        ctx.rotate( -angle );
-        ctx.translate( -(rocketPosition.x + 55), -(canvas.height - rocketPosition.y - 100 ));
-        // ctx.rotate(30);
+        ctx.rotate(-angle);
+        ctx.translate(
+          -(rocketPosition.x + 55),
+          -(canvas.height - rocketPosition.y - 100)
+        );
 
+        // ctx.rotate(30);
+        const rocketBoundingBox = {
+          x: rocketPosition.x + 55,
+          y: canvas.height - rocketPosition.y - 100,
+          width: 50, // width of the rocket image
+          height: 50, // height of the rocket image
+        };
+        // / Check for intersections
+        const intersectsTarget1 = doRectanglesIntersect(
+          rocketBoundingBox,
+          targetBoundingBox1
+        );
+        const intersectsTarget2 = doRectanglesIntersect(
+          rocketBoundingBox,
+          targetBoundingBox2
+        );
+        if (intersectsTarget1) {
+          if (!hitTarget1Ref.current) {
+            playExplosionAnim(rocketBoundingBox.x, rocketBoundingBox.y);
+            dispatch(addPoints(1));
+            //animation once
+          }
+          hitTarget1Ref.current = true;
+        }
+        if (intersectsTarget2) {
+          if (!hitTarget2Ref.current) {
+            playExplosionAnim(rocketBoundingBox.x, rocketBoundingBox.y);
+            dispatch(addPoints(1));
+            //animation once
+          }
+          hitTarget2Ref.current = true;
+        }
       }
     };
 
     const drawTargets = () => {
-      ctx.fillStyle = 'blue';
-      ctx.beginPath();
-      ctx.arc(canvas.width - 200, canvas.height - 100, 25, 0, 2 * Math.PI);
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(canvas.width - 100, canvas.height - 150, 25, 0, 2 * Math.PI);
-      ctx.fill();
+      const x1 = targetPositions[0].x;
+      const y1 = targetPositions[0].y;
+      const x2 = targetPositions[1].x;
+      const y2 = targetPositions[1].y;
+      if (!hitTarget1Ref.current) {
+        ctx.fillStyle = "blue";
+        ctx.beginPath();
+        ctx.arc(x1, y1, 25, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+      if (!hitTarget2Ref.current) {
+        ctx.fillStyle = "blue";
+        ctx.beginPath();
+        ctx.arc(x2, y2, 25, 0, 2 * Math.PI);
+        ctx.fill();
+      }
     };
 
     const drawLand = () => {
-      ctx.fillStyle = 'green';
+      ctx.fillStyle = "green";
       ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
     };
 
@@ -88,7 +282,7 @@ const Game = () => {
     };
 
     draw();
-  }, [rocketPosition]);
+  }, [rocketPosition, targetPositions, dispatch]);
 
   useEffect(() => {
     if (isFiring) {
@@ -106,27 +300,33 @@ const Game = () => {
 
   const calculateRocketPosition = (t, v0, angle) => {
     const g = 9.81; // gravity
-    let x = v0 * t * Math.cos(angle);// - v0 * 2 * Math.cos(angle) ;
+    let x = v0 * t * Math.cos(angle); // - v0 * 2 * Math.cos(angle) ;
     let y = v0 * t * Math.sin(angle) - 0.5 * g * t * t;
-    let rAngle = Math.atan((v0*Math.sin(angle)-g*t)/(v0*Math.cos(angle))); // current angle of rocket
-    
-    return { x, y, rAngle};
+    let rAngle = Math.atan(
+      (v0 * Math.sin(angle) - g * t) / (v0 * Math.cos(angle))
+    ); // current angle of rocket
+
+    return { x, y, rAngle };
   };
 
   useEffect(() => {
     if (!isFiring && holdDuration > 0) {
       const launchRocket = () => {
-        const g = 9.81; // gravity
-        const v0 = holdDuration * 20; // initial velocity based on hold duration
-        const angle = Math.PI / 3; // 60 degrees
+        const v0 = holdDuration * 200; // initial velocity based on hold duration
+        const angle =
+          Math.PI / 4 + (Math.PI / 4) * Math.min(holdDuration / 10, 1); // 60 degrees
         launchTimeRef.current = Date.now();
 
         rocketIntervalRef.current = setInterval(() => {
           const t = (Date.now() - launchTimeRef.current) / 1000; // in seconds
           const { x, y, rAngle } = calculateRocketPosition(t, v0, angle);
-
-          if (y < 0) {
+          if (y < 0 || x > window.innerWidth + 100) {
             clearInterval(rocketIntervalRef.current);
+            hitTarget1Ref.current = false;
+            hitTarget2Ref.current = false;
+            dispatch(resetHoldDuration());
+            dispatch(resetTargetPositions());
+
             dispatch(updateRocketPosition({ x: 0, y: 0 })); // Reset position after it falls
           } else {
             dispatch(updateRocketPosition({ x, y, rAngle }));
@@ -135,7 +335,6 @@ const Game = () => {
       };
 
       launchRocket();
-      dispatch(resetHoldDuration());
     }
 
     return () => clearInterval(rocketIntervalRef.current);
@@ -149,23 +348,45 @@ const Game = () => {
 
   const handleMouseUp = () => {
     const finalHoldDuration = (Date.now() - holdStartTimeRef.current) / 1000; // in seconds
+    if (finalHoldDuration < 0.5) {
+      toast("Hold the button for at least 0.5 seconds to fire the rocket");
+      return;
+    }
     setCurrentHoldDuration(finalHoldDuration);
     dispatch(stopFiring());
   };
 
   return (
-    <div className="game">
-      <div className="tokens">Tokens: {tokens}</div>
-      <canvas ref={canvasRef}></canvas>
-      <div className="controls">
-        <button onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} disabled={tokens <= 0}>
-          Fire Rocket
-        </button>
-        <div className="hold-bar">
-          <div className="hold-duration" style={{ width: `${currentHoldDuration * 10}%` }}></div>
+    <>
+      <div className="game">
+        <div className="tokens">Tokens: {tokens}</div>
+        <div className="points">Points: {points}</div>
+        <div className="canvas-game">
+          <canvas ref={canvasRef}></canvas>
+        </div>
+
+        <div className="controls">
+          <button
+            onPointerDown={handleMouseDown}
+            onPointerUp={handleMouseUp}
+            onContextMenu={(e) => e.preventDefault()}
+            disabled={tokens <= 0 || holdDuration}
+            style={{
+              pointerEvents: tokens <= 0 || holdDuration ? "none" : "auto",
+            }}
+          >
+            <span className="button-text">Fire Rocket</span>
+          </button>
+          <div className="hold-bar">
+            <div
+              className="hold-duration"
+              style={{ width: `${currentHoldDuration * 10}%` }}
+            ></div>
+          </div>
         </div>
       </div>
-    </div>
+      <ToastContainer className="toast-container" />
+    </>
   );
 };
 

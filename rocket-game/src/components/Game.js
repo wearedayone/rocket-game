@@ -47,7 +47,6 @@ const Game = () => {
             clearInterval(rocketIntervalRef.current);
             dispatch(updateRocketPosition({ x: 0, y: 0 })); // Reset position after it falls
           } else {
-            
             dispatch(updateRocketPosition({ x, y: -y }));
           }
         }, 100);
