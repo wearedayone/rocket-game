@@ -1,18 +1,55 @@
 // src/components/Game.js
 import React, { useEffect, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { startFiring, stopFiring, updateRocketPosition, resetHoldDuration } from '../store';
+import { startFiring, stopFiring, updateRocketPosition, resetHoldDuration, removeTargets, resetTargets, resetScore } from '../store';
 
 const Game = () => {
   const canvasRef = useRef(null);
   const dispatch = useDispatch();
-  const { isFiring, rocketPosition, holdDuration, tokens } = useSelector((state) => state.game);
+  const { isFiring, rocketPosition, holdDuration, tokens, targets, score } = useSelector((state) => state.game);
   const [currentHoldDuration, setCurrentHoldDuration] = useState(0);
   const intervalRef = useRef(null);
   const rocketIntervalRef = useRef(null);
   const holdStartTimeRef = useRef(null);
   const launchTimeRef = useRef(null);
   const rocketImageRef = useRef(null); // Reference for the rocket image
+  
+  useEffect(() =>{
+    startNewRound();
+  }, []);
+
+  useEffect(() => {
+    drawTargets();
+  }, [targets])
+
+  
+  const drawTargets = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    
+    for(let target of targets) {
+      if (target.dead) {
+        ctx.fillStyle = target.color;
+        ctx.beginPath();
+        for (let i = 0; i < 10; i ++) {
+          const x = canvas.width - target.width;
+          const y = canvas.height - target.height;
+          const diffx = Math.random() * 100 - 50;
+          const diffy = Math.random() * 100 - 50;
+          const radius = Math.random() * 10;
+
+          ctx.arc(x + diffx, y + diffy, radius, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      } else {
+        ctx.fillStyle = target.color;
+        ctx.beginPath();
+        ctx.arc(canvas.width - target.width, canvas.height - target.height, target.radius, 0, 2 * Math.PI);
+        ctx.fill();        
+      }
+
+    }
+  };
 
 
   useEffect(() => {
@@ -45,7 +82,6 @@ const Game = () => {
       
       if (rocketImageRef.current) {
         const angle = Math.sqrt(2) - rocketPosition.rAngle; 
-        console.log(angle, rocketPosition.rAngle )
         ctx.translate( rocketPosition.x + 55, canvas.height - rocketPosition.y - 100 );
         ctx.rotate(angle);
         ctx.drawImage(
@@ -63,24 +99,15 @@ const Game = () => {
       }
     };
 
-    const drawTargets = () => {
-      ctx.fillStyle = 'blue';
-      ctx.beginPath();
-      ctx.arc(canvas.width - 200, canvas.height - 100, 25, 0, 2 * Math.PI);
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(canvas.width - 100, canvas.height - 150, 25, 0, 2 * Math.PI);
-      ctx.fill();
-    };
-
     const drawLand = () => {
       ctx.fillStyle = 'green';
       ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
     };
 
     const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (rocketPosition.x !== 0 && rocketPosition.y !== 0)
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawLand();
       drawLauncher();
       drawRocket();
@@ -88,7 +115,17 @@ const Game = () => {
     };
 
     draw();
-  }, [rocketPosition]);
+
+    for (let item of targets) {
+      if (rocketPosition.x + 55 >= canvas.width - item.width - item.radius 
+      && rocketPosition.x + 55 <= canvas.width - item.width + item.radius
+      && canvas.height - rocketPosition.y - 100 >= canvas.height - item.height - item.radius
+      && canvas.height - rocketPosition.y - 100 <= canvas.height - item.height + item.radius) {
+        dispatch(removeTargets(item.id));
+        break;
+      }
+    } 
+  }, [rocketPosition, targets]);
 
   useEffect(() => {
     if (isFiring) {
@@ -122,12 +159,14 @@ const Game = () => {
         launchTimeRef.current = Date.now();
 
         rocketIntervalRef.current = setInterval(() => {
-          const t = (Date.now() - launchTimeRef.current) / 1000; // in seconds
+          const t = (Date.now() - launchTimeRef.current) / 100; // in seconds
           const { x, y, rAngle } = calculateRocketPosition(t, v0, angle);
 
           if (y < 0) {
             clearInterval(rocketIntervalRef.current);
-            dispatch(updateRocketPosition({ x: 0, y: 0 })); // Reset position after it falls
+            setTimeout(() => {
+              startNewRound();
+            }, 1000);
           } else {
             dispatch(updateRocketPosition({ x, y, rAngle }));
           }
@@ -135,12 +174,30 @@ const Game = () => {
       };
 
       launchRocket();
-      dispatch(resetHoldDuration());
+      // dispatch(resetHoldDuration());
     }
 
     return () => clearInterval(rocketIntervalRef.current);
   }, [isFiring, holdDuration, dispatch]);
 
+  const startNewRound = () => {
+    dispatch(updateRocketPosition({ x: 0, y: 0, rAngle: 0 })); // Reset position after it falls
+    const targetAmount = Math.round(Math.random() * 10) % 2 + 2;
+    let _targets = [];
+    for (let i = 0; i < targetAmount; i ++) {
+      let _target = {
+        id: i, 
+        width: 100 + i * 80, 
+        height: Math.random() * 100 + 100, 
+        radius: Math.random() * 25 + 20, 
+        color: 'blue' 
+      };
+      
+      _targets.push(_target);
+    }
+    dispatch(resetTargets(_targets));
+
+  }
   const handleMouseDown = () => {
     if (tokens > 0) {
       dispatch(startFiring());
@@ -155,7 +212,7 @@ const Game = () => {
 
   return (
     <div className="game">
-      <div className="tokens">Tokens: {tokens}</div>
+      <div className="tokens">Tokens: {tokens} Score: {score}</div>
       <canvas ref={canvasRef}></canvas>
       <div className="controls">
         <button onMouseDown={handleMouseDown} onMouseUp={handleMouseUp} disabled={tokens <= 0}>
