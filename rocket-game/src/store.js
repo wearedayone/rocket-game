@@ -7,6 +7,7 @@ const initialState = {
   launchTime: null,
   holdDuration: 0,
   tokens: 10, // Initial number of tokens
+  points: 0,
 };
 
 const gameSlice = createSlice({
@@ -29,10 +30,13 @@ const gameSlice = createSlice({
     resetHoldDuration: (state) => {
       state.holdDuration = 0;
     },
+    increasePoint: (state) => {
+      state.points += 1;
+    },
   },
 });
 
-export const { startFiring, stopFiring, updateRocketPosition, resetHoldDuration } = gameSlice.actions;
+export const { startFiring, stopFiring, updateRocketPosition, resetHoldDuration, increasePoint } = gameSlice.actions;
 
 export const store = configureStore({
   reducer: {
